@@ -1,0 +1,78 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createServer } from 'node:http';
+import { chromium } from 'playwright-core';
+import { build } from 'esbuild';
+import { createPreviewService } from './service';
+
+test('desktop/web journey: embedded preview, diagram, checkbox persistence, local link, source, and image viewer', {timeout:45000}, async t => {
+  const root=await mkdtemp(path.join(tmpdir(),'paseo-md-browser-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  await mkdir(path.join(root,'docs'));
+  await writeFile(path.join(root,'README.md'),'# Preview journey\n\n- [ ] Save this task\n\n| Name | Value |\n| --- | --- |\n| Sample | 42 |\n\n$x^2$\n\n```mermaid\ngraph TD\n A[Start]-->B[Finish]\n```\n\n[Guide](docs/guide.md)\n\n![Sample image](sample.svg)\n');
+  await writeFile(path.join(root,'docs','guide.md'),'# Linked guide\n\nBack to the [README](../README.md).');
+  await writeFile(path.join(root,'sample.svg'),'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>');
+  const service=await createPreviewService();t.after(()=>service.close());
+  const url=await service.open(root);
+  // Exercise the actual web bridge inside a React Native Web View, as Paseo does.
+  const bundle=await build({stdin:{contents:`
+    import React from 'react';import {createRoot} from 'react-dom/client';import {View} from 'react-native';
+    import {mountPreview} from './client/web';
+    function Host(){const ref=React.useRef(null);React.useEffect(()=>mountPreview(ref.current,${JSON.stringify(url)}),[]);return React.createElement(View,{ref,style:{height:'100vh',width:'100vw'}});}
+    createRoot(document.getElementById('root')).render(React.createElement(Host));
+  `,resolveDir:process.cwd(),loader:'tsx'},alias:{'react-native':'react-native-web'},bundle:true,format:'iife',platform:'browser',write:false,define:{'process.env.NODE_ENV':'"test"'},logLevel:'silent'});
+  const harness=createServer((req,res)=>{if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(bundle.outputFiles[0].text);}else{res.setHeader('Content-Type','text/html');res.end('<html><body style="margin:0"><div id="root"></div><script src="/app.js"></script></body></html>');}});
+  await new Promise<void>(resolve=>harness.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise<void>(resolve=>{harness.closeAllConnections();harness.close(()=>resolve());}));
+  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+  t.after(()=>browser.close());
+  const page=await browser.newPage({viewport:{width:1280,height:900}});
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  const address=harness.address();assert(address&&typeof address!=='string');
+  await page.goto(`http://127.0.0.1:${address.port}`);
+  const frame=page.frameLocator('iframe[title="Markdown Preview Enhanced"]');
+  await frame.getByRole('heading',{name:'Preview journey'}).waitFor();
+  await frame.getByRole('status').filter({hasText:'Live'}).waitFor();
+  assert.equal(await frame.getByRole('table').getByText('42').isVisible(),true);
+  await frame.getByRole('img',{name:'Mermaid diagram'}).waitFor();
+  await frame.getByRole('checkbox').check();
+  await frame.getByRole('checkbox').filter({visible:true}).waitFor();
+  await frame.getByRole('status').filter({hasText:'Live'}).waitFor();
+  // Reload through the visible Refresh control and verify persisted state in the preview.
+  await frame.getByRole('button',{name:'Refresh',exact:true}).click();
+  await frame.getByRole('checkbox').waitFor({state:'visible'});
+  assert.equal(await frame.getByRole('checkbox').isChecked(),true);
+  assert.match(await readFile(path.join(root,'README.md'),'utf8'),/- \[x\] Save this task/);
+  await mkdir(path.join(process.cwd(),'test-results'),{recursive:true});
+  await page.screenshot({path:'test-results/desktop-preview.png',fullPage:true});
+  await frame.getByRole('link',{name:'Guide',exact:true}).click();
+  await frame.getByRole('heading',{name:'Linked guide'}).waitFor();
+  await frame.getByRole('button',{name:'Source',exact:true}).click();
+  await frame.getByRole('main').getByText('# Linked guide',{exact:false}).waitFor();
+  await frame.getByRole('button',{name:'Preview',exact:true}).click();
+  await frame.getByRole('heading',{name:'Linked guide'}).waitFor();
+  await frame.getByRole('link',{name:'README',exact:true}).click();
+  await frame.getByRole('heading',{name:'Preview journey'}).waitFor();
+  await frame.getByRole('img',{name:'Sample image',exact:true}).click();
+  await frame.getByRole('dialog').waitFor();
+  assert.equal(await frame.getByRole('dialog').getByRole('img').isVisible(),true);
+  await frame.getByRole('button',{name:'Close image'}).click();
+  await frame.getByRole('dialog').waitFor({state:'hidden'});
+  await page.setViewportSize({width:390,height:844});
+  await frame.getByRole('heading',{name:'Preview journey'}).waitFor();
+  await page.screenshot({path:'test-results/compact-preview.png',fullPage:true});
+  const darkTheme=page.waitForResponse(response=>response.url().endsWith('/preview_theme/github-dark.css')&&response.status()===200);
+  await page.emulateMedia({colorScheme:'dark'});
+  await darkTheme;
+  await frame.getByRole('status').filter({hasText:'Live'}).waitFor();
+  const background=await frame.locator('body').evaluate(element=>{
+    const body=element as unknown as {ownerDocument:{defaultView:{getComputedStyle(node:unknown):{backgroundColor:string}}}};
+    return body.ownerDocument.defaultView.getComputedStyle(element).backgroundColor;
+  });
+  assert.equal(background,'rgb(23, 26, 32)');
+  await page.screenshot({path:'test-results/dark-preview.png',fullPage:true});
+  assert.deepEqual(errors,[]);
+});
