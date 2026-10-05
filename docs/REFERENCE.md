@@ -74,3 +74,5 @@ Preview Enhanced setup without modifying the original VS Code extensions.
 ## Desktop file-tab contract
 
 The Paseo fork calls `preview.open` with `workspaceId`, `filePath`, and `embedded: true`. The plugin validates the selected Markdown file against the workspace before allocating a session. Embedded previews hide the panel picker and send local Markdown navigation to the owning file tab. `preview.close` releases that session when the rendered view unmounts. The normal workspace-panel contract remains available.
+
+Workspace panels own their preview sessions: closing a panel calls `preview.close`; reopening always allocates a fresh URL. Mounted panels renew after seven hours, before the host’s eight-hour expiry. Failed opens or renewals expose Retry, which releases any previous session and starts again. Theme changes only remount the iframe and preserve the current session.

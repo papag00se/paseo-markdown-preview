@@ -101,3 +101,50 @@ test('file-tab preview opens the requested encoded path, hides the picker, and p
   service.release(target);
   assert.equal((await fetch(target)).status,404);
 });
+
+test('workspace panel close releases its real session and reopening creates a fresh usable preview', {timeout:30000}, async t => {
+  const root=await mkdtemp(path.join(tmpdir(),'paseo-md-panel-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  await writeFile(path.join(root,'README.md'),'# Panel lifecycle\n');
+  const service=await createPreviewService();t.after(()=>service.close());
+  const opened:string[]=[], released:string[]=[];
+  const bundle=await build({stdin:{contents:`
+    import React from 'react';import {createRoot} from 'react-dom/client';
+    import {PreviewPanel} from './client/preview';
+    function Host(){const [visible,setVisible]=React.useState(true);return <><button onClick={()=>setVisible(!visible)}>{visible?'Close panel':'Open panel'}</button>{visible?<PreviewPanel workspaceId="test" theme={{colors:{surface0:'#ffffff',foreground:'#000000',foregroundMuted:'#555555',statusDanger:'#cc0000',accent:'#0000ff'}}} layout={{platform:'web'}}/>:null}</>;}
+    createRoot(document.getElementById('root')).render(<Host/>);
+  `,resolveDir:process.cwd(),loader:'tsx'},plugins:[{name:'host-rpc',setup(build){build.onResolve({filter:/^@getpaseo\/plugin\/client$/},()=>({path:'host-rpc',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({resolveDir:process.cwd(),contents:`
+    import {useCallback} from 'react';
+    export function useRpc(contract){return useCallback(async input=>{const response=await fetch('/rpc/'+contract.name,{method:'POST',body:JSON.stringify(input)});if(!response.ok)throw new Error(await response.text());return response.json();},[contract.name]);}
+  `}));}}],alias:{'react-native':'react-native-web'},bundle:true,format:'iife',platform:'browser',write:false,define:{'process.env.NODE_ENV':'"test"'},logLevel:'silent'});
+  const harness=createServer(async(req,res)=>{
+    try {
+      if(req.url?.startsWith('/rpc/')){
+        let body='';for await(const chunk of req)body+=chunk;
+        const input=JSON.parse(body);res.setHeader('Content-Type','application/json');
+        if(req.url==='/rpc/preview.open'){const url=await service.open(root);opened.push(url);res.end(JSON.stringify({url,hostname:'local'}));}
+        else if(req.url==='/rpc/preview.close'){service.release(input.url);released.push(input.url);res.end('{}');}
+        else {res.statusCode=404;res.end('{}');}
+      }else if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(bundle.outputFiles[0].text);}
+      else {res.setHeader('Content-Type','text/html');res.end('<html><body><div id="root" style="height:90vh;display:flex;flex-direction:column"></div><script src="/app.js"></script></body></html>');}
+    } catch(error){res.statusCode=500;res.end(String(error));}
+  });
+  await new Promise<void>(resolve=>harness.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise<void>(resolve=>{harness.closeAllConnections();harness.close(()=>resolve());}));
+  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',headless:true,args:['--no-sandbox']});t.after(()=>browser.close());
+  const page=await browser.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const address=harness.address();assert(address&&typeof address!=='string');await page.goto(`http://127.0.0.1:${address.port}`);
+  const frame=page.frameLocator('iframe[title="Markdown Preview Enhanced"]');
+  await frame.getByRole('heading',{name:'Panel lifecycle'}).waitFor();
+  const first=opened[0];assert.ok(first);
+  const closed=page.waitForResponse(r=>r.url().endsWith('/rpc/preview.close')&&r.status()===200);
+  await page.getByRole('button',{name:'Close panel',exact:true}).click();await closed;
+  assert.equal(await page.locator('iframe').count(),0);
+  assert.equal((await fetch(first)).status,404);
+  await page.getByRole('button',{name:'Open panel',exact:true}).click();
+  await frame.getByRole('heading',{name:'Panel lifecycle'}).waitFor();
+  assert.equal(opened.length,2);assert.notEqual(opened[1],first);
+  const closedAgain=page.waitForResponse(r=>r.url().endsWith('/rpc/preview.close')&&r.status()===200);
+  await page.getByRole('button',{name:'Close panel',exact:true}).click();await closedAgain;
+  assert.deepEqual(released,opened);assert.equal((await fetch(opened[1])).status,404);assert.deepEqual(errors,[]);
+});
