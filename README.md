@@ -75,6 +75,6 @@ npm test
 npm run preview -- /absolute/path/to/workspace
 ```
 
-The eleven tests cover the browser journey, actual Crossnote rendering, task persistence, UTF-8/BOM/CRLF preservation, stale revisions, workspace confinement, and selected-file embedding/session cleanup, panel close/reopen, late RPC cleanup, and session renewal. Browser tests use `/usr/bin/chromium` or `CHROMIUM_PATH`.
+The tests cover the browser journey, actual Crossnote rendering, task persistence, UTF-8/BOM/CRLF preservation, stale revisions, workspace confinement, and selected-file embedding/session cleanup, panel close/reopen, late RPC cleanup, session renewal after sleep, and Retry recovery. Browser tests use `/usr/bin/chromium` or `CHROMIUM_PATH`.
 
 [Rendering limits and implementation notes →](docs/REFERENCE.md)
