@@ -107,7 +107,7 @@ test('workspace panel close releases its real session and reopening creates a fr
   t.after(()=>rm(root,{recursive:true,force:true}));
   await writeFile(path.join(root,'README.md'),'# Panel lifecycle\n');
   const service=await createPreviewService();t.after(()=>service.close());
-  const opened:string[]=[], released:string[]=[];
+  const opened:string[]=[], released:string[]=[];let failOpen=false;
   const bundle=await build({stdin:{contents:`
     import React from 'react';import {createRoot} from 'react-dom/client';
     import {PreviewPanel} from './client/preview';
@@ -122,7 +122,7 @@ test('workspace panel close releases its real session and reopening creates a fr
       if(req.url?.startsWith('/rpc/')){
         let body='';for await(const chunk of req)body+=chunk;
         const input=JSON.parse(body);res.setHeader('Content-Type','application/json');
-        if(req.url==='/rpc/preview.open'){const url=await service.open(root);opened.push(url);res.end(JSON.stringify({url,hostname:'local'}));}
+        if(req.url==='/rpc/preview.open'){if(failOpen){failOpen=false;res.statusCode=503;res.end('Host offline');return;}const url=await service.open(root);opened.push(url);res.end(JSON.stringify({url,hostname:'local'}));}
         else if(req.url==='/rpc/preview.close'){service.release(input.url);released.push(input.url);res.end('{}');}
         else {res.statusCode=404;res.end('{}');}
       }else if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(bundle.outputFiles[0].text);}
@@ -133,6 +133,7 @@ test('workspace panel close releases its real session and reopening creates a fr
   t.after(()=>new Promise<void>(resolve=>{harness.closeAllConnections();harness.close(()=>resolve());}));
   const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',headless:true,args:['--no-sandbox']});t.after(()=>browser.close());
   const page=await browser.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.clock.install();
   const address=harness.address();assert(address&&typeof address!=='string');await page.goto(`http://127.0.0.1:${address.port}`);
   const frame=page.frameLocator('iframe[title="Markdown Preview Enhanced"]');
   await frame.getByRole('heading',{name:'Panel lifecycle'}).waitFor();
@@ -144,7 +145,17 @@ test('workspace panel close releases its real session and reopening creates a fr
   await page.getByRole('button',{name:'Open panel',exact:true}).click();
   await frame.getByRole('heading',{name:'Panel lifecycle'}).waitFor();
   assert.equal(opened.length,2);assert.notEqual(opened[1],first);
+  // A failed seven-hour renewal surfaces Retry; Retry replaces and releases the old session.
+  failOpen=true;
+  const failed=page.waitForResponse(r=>r.url().endsWith('/rpc/preview.open')&&r.status()===503);
+  await page.clock.fastForward('07:00:00');await failed;
+  await page.getByText('Host offline').waitFor();
+  const retried=page.waitForResponse(r=>r.url().endsWith('/rpc/preview.close')&&r.status()===200);
+  await page.getByRole('button',{name:'Retry preview'}).click();await retried;
+  await frame.getByRole('heading',{name:'Panel lifecycle'}).waitFor();
+  assert.equal(opened.length,3);assert.equal(await page.getByText('Host offline').count(),0);
+  assert.equal((await fetch(opened[1])).status,404);assert.equal((await fetch(opened[2])).status,200);
   const closedAgain=page.waitForResponse(r=>r.url().endsWith('/rpc/preview.close')&&r.status()===200);
   await page.getByRole('button',{name:'Close panel',exact:true}).click();await closedAgain;
-  assert.deepEqual(released,opened);assert.equal((await fetch(opened[1])).status,404);assert.deepEqual(errors,[]);
+  assert.deepEqual(released,opened);assert.equal((await fetch(opened[2])).status,404);assert.deepEqual(errors,[]);
 });
