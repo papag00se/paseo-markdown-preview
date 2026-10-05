@@ -25,14 +25,16 @@ Read Markdown as a document, with diagrams, math, images, and task checkboxes th
 | Live updates | Changes to the selected source file appear automatically |
 | Light and dark | Rendering follows the Paseo panel theme where available |
 
-![A real browser test showing Markdown, a saved checkbox, a table, math, and a Mermaid diagram](docs/media/desktop-preview.png)
+![Atlas delivery brief in the real Markdown Preview: a regional latency chart, release-flow Mermaid diagram, launch criteria, KaTeX math, task checkboxes, and highlighted YAML](docs/media/desktop-preview.png)
+
+*A real browser capture of the [showcase document](docs/showcase/README.md), with illustrative release data.*
 
 <details>
 <summary>Compact layout and dark theme</summary>
 
-![Compact preview](docs/media/compact-preview.png)
+![The Atlas delivery brief in a compact preview panel](docs/media/compact-preview.png)
 
-![Dark preview](docs/media/dark-preview.png)
+![The same release brief in the real dark-theme preview](docs/media/dark-preview.png)
 
 </details>
 

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="240" viewBox="0 0 1200 240" role="img" aria-labelledby="title description">
+  <title id="title">Global delivery latency</title>
+  <desc id="description">Illustrative seven-day p95 delivery latency. Seattle 84 ms, Virginia 92 ms, London 96 ms, Frankfurt 101 ms, Singapore 112 ms, and Tokyo 108 ms. All six regions meet the 150 ms target.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1"><stop stop-color="#142b45"/><stop offset="1" stop-color="#0b1426"/></linearGradient>
+    <linearGradient id="bar" x2="0" y2="1"><stop stop-color="#5eead4"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+  </defs>
+  <rect width="1200" height="240" rx="16" fill="url(#background)"/>
+  <g font-family="system-ui, sans-serif">
+    <text x="32" y="40" fill="#f8fafc" font-size="22" font-weight="650">Global delivery latency</text>
+    <text x="32" y="66" fill="#94a3b8" font-size="14">SEVEN-DAY P95 · SIX EDGE REGIONS</text>
+    <rect x="970" y="24" width="198" height="32" rx="16" fill="#134e4a"/>
+    <circle cx="990" cy="40" r="4" fill="#5eead4"/>
+    <text x="1004" y="45" fill="#99f6e4" font-size="13" font-weight="600">ALL REGIONS HEALTHY</text>
+    <path d="M32 101H1168" stroke="#64748b" stroke-dasharray="4 5"/>
+    <text x="1168" y="91" fill="#94a3b8" font-size="12" text-anchor="end">150 ms target</text>
+    <path d="M32 198H1168" stroke="#334155"/>
+    <g fill="url(#bar)">
+      <rect x="72" y="144" width="106" height="54" rx="5"/>
+      <rect x="260" y="139" width="106" height="59" rx="5"/>
+      <rect x="448" y="136" width="106" height="62" rx="5"/>
+      <rect x="636" y="133" width="106" height="65" rx="5"/>
+      <rect x="824" y="126" width="106" height="72" rx="5"/>
+      <rect x="1012" y="128" width="106" height="70" rx="5"/>
+    </g>
+    <g fill="#e2e8f0" font-size="16" font-weight="600" text-anchor="middle">
+      <text x="125" y="134">84 ms</text><text x="313" y="129">92 ms</text>
+      <text x="501" y="126">96 ms</text><text x="689" y="123">101 ms</text>
+      <text x="877" y="116">112 ms</text><text x="1065" y="118">108 ms</text>
+    </g>
+    <g fill="#94a3b8" font-size="13" text-anchor="middle">
+      <text x="125" y="222">SEATTLE</text><text x="313" y="222">VIRGINIA</text>
+      <text x="501" y="222">LONDON</text><text x="689" y="222">FRANKFURT</text>
+      <text x="877" y="222">SINGAPORE</text><text x="1065" y="222">TOKYO</text>
+    </g>
+  </g>
+</svg>
