@@ -6,7 +6,7 @@ export function previewPage(base: string, nonce: string, theme: 'auto' | 'light'
 <link rel="stylesheet" href="${base}/assets/dependencies/katex/katex.min.css">
 <style>
 :root{color-scheme:${theme === 'auto' ? 'light dark' : theme}}*{box-sizing:border-box}html body{margin:0;background:light-dark(#fff,#171a20);color:light-dark(#24292f,#e6edf3);font:16px/1.6 system-ui,sans-serif}
-header{position:sticky;top:0;z-index:10;background:light-dark(#f6f8fa,#21262d);padding:10px 16px;border-bottom:1px solid #8885;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header[hidden]{display:none}header{position:sticky;top:0;z-index:10;background:light-dark(#f6f8fa,#21262d);padding:10px 16px;border-bottom:1px solid #8885;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 input,select,button{font:inherit;padding:5px 8px;background:light-dark(#fff,#171a20);color:inherit;border:1px solid #8888;border-radius:5px}select{max-width:65vw;flex:1}#status{font-size:12px}#error{color:light-dark(#b42318,#ff9b91);padding:0 16px;white-space:pre-wrap}main{max-width:1000px;margin:auto;padding:20px 28px;overflow-wrap:anywhere}
 #preview.markdown-preview{background:transparent;color:inherit}main img,main svg{max-width:100%;height:auto}main pre{overflow:auto;padding:12px;background:#8881}main table{display:block;overflow:auto}main input[type=checkbox]{cursor:pointer;margin-right:6px}main li.task-list-item{list-style:none}main a{color:light-dark(#0969da,#79c0ff)}#filter{width:160px}#source{white-space:pre-wrap}dialog{max-width:95vw;max-height:90vh;overflow:auto;background:light-dark(#fff,#171a20);color:inherit;border:1px solid #8888}dialog img{max-width:85vw;max-height:80vh}button{cursor:pointer}@media(max-width:600px){main{padding:16px}#filter{width:120px}}
 </style></head><body>
@@ -19,6 +19,10 @@ input,select,button{font:inherit;padding:5px 8px;background:light-dark(#fff,#171
 function browserScript(base: string, theme: 'auto' | 'light' | 'dark') {
   return String.raw`
 const base=${JSON.stringify(base)};
+const query=new URL(location.href).searchParams;
+const selectedPath=query.get('file');
+const embedded=query.get('embedded')==='1';
+if(embedded)document.querySelector('header').hidden=true;
 const forcedTheme=${JSON.stringify(theme)};
 const files=document.getElementById('files'), preview=document.getElementById('preview'), status=document.getElementById('status'), error=document.getElementById('error');
 let allFiles=[],file='',revision='',busy=false,showSource=false,lastHtml='';
@@ -57,11 +61,11 @@ preview.addEventListener('click',event=>{
  const image=event.target.closest('img');if(image){document.getElementById('largeImage').src=image.src;document.getElementById('largeImage').alt=image.alt;document.getElementById('lightbox').showModal();return;}
  const link=event.target.closest('a');if(!link)return;
  const url=new URL(link.href);if(url.origin===location.origin&&url.pathname===base+'/file'){
-  const target=url.searchParams.get('path');if(/\.(md|markdown|mdx|mkd|mdown)$/i.test(target)){event.preventDefault();showSource=false;document.getElementById('sourceToggle').textContent='Source';if(!allFiles.includes(target))allFiles.push(target);populate();files.value=target;selectFile(target);}
+  const target=url.searchParams.get('path');if(/\.(md|markdown|mdx|mkd|mdown)$/i.test(target)){event.preventDefault();if(embedded){parent.postMessage({type:'paseo.markdown.open',path:target},'*');return;}showSource=false;document.getElementById('sourceToggle').textContent='Source';if(!allFiles.includes(target))allFiles.push(target);populate();files.value=target;selectFile(target);}
  }else if(/^https?:/.test(url.protocol)){link.target='_blank';link.rel='noopener noreferrer';}
 });
 document.getElementById('closeLightbox').addEventListener('click',()=>document.getElementById('lightbox').close());
-request('/files').then(data=>{allFiles=data.files;populate();const initial=allFiles.find(x=>/^readme\.md$/i.test(x))||allFiles[0];if(initial){files.value=initial;selectFile(initial);}else status.textContent='No Markdown files found';if(data.truncated)error.textContent='File listing reached its limit; use a smaller workspace.';}).catch(report);
+if(embedded&&selectedPath){allFiles=[selectedPath];populate();files.value=selectedPath;selectFile(selectedPath);}else request('/files').then(data=>{allFiles=data.files;populate();const initial=selectedPath||allFiles.find(x=>/^readme\.md$/i.test(x))||allFiles[0];if(initial){files.value=initial;selectFile(initial);}else status.textContent='No Markdown files found';if(data.truncated)error.textContent='File listing reached its limit; use a smaller workspace.';}).catch(report);
 setInterval(()=>{if(!showSource)refresh();},1500);
 `;
 }

@@ -63,7 +63,7 @@ In a workspace, open **Command Center → Open Markdown Preview**, then choose a
 
 ## Compatibility
 
-Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. Ordinary Explorer clicks still use Paseo's built-in preview; default-preview and right-click integration need a Paseo fork change and are not part of this release.
+Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. The [Crossnote file-preview fork](https://github.com/papag00se/paseo/tree/feature/crossnote-file-preview) opens desktop Markdown files in their existing file tabs and adds right-click → **Preview**. Stock Paseo still uses its built-in file preview; the plugin's workspace panel works independently.
 
 This version supports **directory installation**. Crossnote's assets and native dependencies require a generated local dependency path; run `npm run prepare` after moving the checkout. Direct Git/npm acquisition is not supported yet.
 
@@ -75,6 +75,6 @@ npm test
 npm run preview -- /absolute/path/to/workspace
 ```
 
-The five tests cover the browser journey, actual Crossnote rendering, task persistence, UTF-8/BOM/CRLF preservation, stale revisions, and workspace confinement. Browser tests use `/usr/bin/chromium` or `CHROMIUM_PATH`.
+The six tests cover the browser journey, actual Crossnote rendering, task persistence, UTF-8/BOM/CRLF preservation, stale revisions, workspace confinement, and selected-file embedding/session cleanup. Browser tests use `/usr/bin/chromium` or `CHROMIUM_PATH`.
 
 [Rendering limits and implementation notes →](docs/REFERENCE.md)

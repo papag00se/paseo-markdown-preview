@@ -74,13 +74,26 @@ export async function createPreviewService() {
   });
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',()=>{server.off('error',reject);const address=server.address();if(!address||typeof address==='string')return reject(new Error('Preview listener unavailable.'));port=address.port;resolve();});});
   return {
-    async open(directory:string) {
+    async open(directory:string, options: { filePath?: string; embedded?: boolean } = {}) {
       for(const [token,session] of sessions)if(session.expires<Date.now())sessions.delete(token);
       if(sessions.size>=128)throw new Error('Close and reload the preview plugin to clear old preview sessions.');
       const root=await realpath(directory);
+      const selected = options.filePath ? (path.isAbsolute(options.filePath) ? path.relative(root, options.filePath) : options.filePath) : undefined;
+      if (selected) await readMarkdown(root, selected);
+      if (options.embedded && !selected) throw new Error('Choose a Markdown file for the file tab.');
       const token=randomBytes(24).toString('hex');
       sessions.set(token,{root,renderer:new Renderer(root),expires:Date.now()+8*60*60*1000,queue:Promise.resolve()});
-      return `http://127.0.0.1:${port}/preview/${token}`;
+      const url = new URL(`http://127.0.0.1:${port}/preview/${token}`);
+      if (selected) url.searchParams.set('file', selected);
+      if (options.embedded) url.searchParams.set('embedded', '1');
+      return url.toString();
+    },
+    release(address: string) {
+      const url = new URL(address);
+      if (url.origin !== `http://127.0.0.1:${port}`) throw new Error('Invalid preview address.');
+      const token = url.pathname.match(/^\/preview\/([a-f0-9]{48})$/)?.[1];
+      if (!token) throw new Error('Invalid preview session.');
+      sessions.delete(token);
     },
     async close(){sessions.clear();server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));},
   };

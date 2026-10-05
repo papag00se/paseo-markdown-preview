@@ -76,3 +76,28 @@ test('desktop/web journey: embedded preview, diagram, checkbox persistence, loca
   await page.screenshot({path:'test-results/dark-preview.png',fullPage:true});
   assert.deepEqual(errors,[]);
 });
+
+test('file-tab preview opens the requested encoded path, hides the picker, and preserves theme', {timeout:30000}, async t => {
+  const root=await mkdtemp(path.join(tmpdir(),'paseo-md-selected-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  await mkdir(path.join(root,'docs'));
+  await writeFile(path.join(root,'README.md'),'# Wrong default document');
+  await writeFile(path.join(root,'docs','Selected & notes.md'),'# Selected document\n\n- [ ] Selected task\n\n[README](../README.md)');
+  const service=await createPreviewService();t.after(()=>service.close());
+  const target=await service.open(root,{filePath:path.join(root,'docs','Selected & notes.md'),embedded:true});
+  const url=new URL(target);url.searchParams.set('theme','dark');
+  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',headless:true,args:['--no-sandbox']});t.after(()=>browser.close());
+  const page=await browser.newPage();
+  await page.goto(url.toString());
+  await page.getByRole('heading',{name:'Selected document'}).waitFor();
+  assert.equal(await page.getByRole('heading',{name:'Wrong default document'}).count(),0);
+  assert.equal(await page.getByRole('combobox').isVisible(),false);
+  assert.equal(await page.getByRole('button',{name:'Source',exact:true}).isVisible(),false);
+  await page.getByRole('checkbox').check();
+  await page.locator('#status').filter({hasText:'Live'}).waitFor({state:'attached'});
+  assert.match(await readFile(path.join(root,'docs','Selected & notes.md'),'utf8'),/- \[x\] Selected task/);
+  await assert.rejects(service.open(root,{filePath:'../outside.md',embedded:true}));
+  await assert.rejects(service.open(root,{embedded:true}));
+  service.release(target);
+  assert.equal((await fetch(target)).status,404);
+});
