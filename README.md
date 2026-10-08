@@ -61,6 +61,8 @@ paseo plugin install "$PWD"
 
 In a workspace, open **Command Center → Open Markdown Preview**, then choose a file. There is no need to open the source editor.
 
+![Paseo Settings → Plugins with Markdown Preview installed and running](docs/media/plugin-setup.png)
+
 ## Compatibility
 
 Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. The [Crossnote file-preview fork](https://github.com/papag00se/paseo/tree/feature/crossnote-file-preview) opens desktop Markdown files in their existing file tabs and adds right-click → **Preview**. Stock Paseo still uses its built-in file preview; the plugin's workspace panel works independently.
