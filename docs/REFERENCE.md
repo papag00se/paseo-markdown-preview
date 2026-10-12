@@ -12,7 +12,7 @@ image enlargement, local Markdown links, and a source/preview toggle are include
 
 ## Supported installation
 
-This version supports **directory installation**, on Paseo 0.9.1 desktop/web on
+This version supports **directory installation**, on Paseo 0.11.2–0.11.x desktop/web on
 the same machine as the daemon. Native mobile and remote clients receive a
 platform/host explanation; the HTML renderer uses a loopback listener and is
 not exposed to the LAN or relay.
@@ -26,9 +26,10 @@ npm test
 paseo plugin install "$PWD"
 ```
 
-Validated as `markdown-preview` on a Paseo 0.9.1 daemon. The plugin reported
-`running`; its live RPC opened a preview and rendered this README successfully.
-The daemon was not restarted.
+Validated as `markdown-preview` on a Paseo 0.11.2 daemon, with the SDK pinned to
+0.11.2 for typechecking. The plugin reported `running` after hot reload; its live
+RPC opened a preview and rendered this README successfully. The 15 backend tests
+also pass. The daemon was not restarted for the plugin upgrade.
 The preview listener starts on demand and is closed by plugin cleanup.
 
 If you move this directory, run `npm run prepare` before loading/reloading the plugin.

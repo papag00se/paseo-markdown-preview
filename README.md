@@ -4,7 +4,7 @@
 
 # Paseo Markdown Preview
 
-![Paseo compatibility](https://img.shields.io/badge/Paseo-0.9.1-22c55e?style=flat-square)
+![Paseo compatibility](https://img.shields.io/badge/Paseo-0.11.2-22c55e?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Desktop%20%26%20web-64748b?style=flat-square)
 
@@ -49,7 +49,7 @@ flowchart LR
 
 ## Getting started
 
-Requires Node.js, npm, Paseo 0.9.1, and plugins enabled on the target daemon. Clone the repository and install it as a directory:
+Requires Node.js, npm, Paseo 0.11.2–0.11.x, and plugins enabled on the target daemon. Clone the repository and install it as a directory:
 
 ```bash
 git clone https://github.com/papag00se/paseo-markdown-preview.git

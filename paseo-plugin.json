@@ -1,6 +1,6 @@
 {
   "id": "markdown-preview",
   "description": "Markdown Preview Enhanced rendering, live file updates, and interactive task checkboxes in a preview-only desktop tab.",
-  "requirements": { "paseo": ">=0.9.1 <0.10.0" },
+  "requirements": { "paseo": ">=0.11.2 <0.12.0" },
   "build": [["npm", "ci", "--legacy-peer-deps"]]
 }
