@@ -7,6 +7,14 @@ export const openPreview = defineRpc({
   output: z.object({ url: z.string().url(), hostname: z.string() }),
 });
 
+// A file-tab grant is distinct from workspace browsing; its session cannot enumerate
+// or edit neighboring documents.
+export const openFilePreview = defineRpc({
+  name: 'preview.file.open',
+  input: z.object({ filePath: z.string().min(1) }),
+  output: z.object({ url: z.string().url(), hostname: z.string(), filePath: z.string().min(1) }),
+});
+
 export const releasePreview = defineRpc({
   name: 'preview.close',
   input: z.object({ url: z.string().url() }),

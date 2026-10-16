@@ -45,6 +45,67 @@ test('checkbox edits preserve a UTF-8 BOM, including a task on the first line', 
   assert.deepEqual(await readFile(doc.filename),Buffer.from(source.replace('[ ]','[x]')));
 });
 
+test('an explicitly opened external file has its own preview without granting access to neighboring documents', async t => {
+  const root = await fixture(t);
+  const file = path.join(root, 'Notes & 日本語.md');
+  await writeFile(file, '# External notes\n\n- [ ] Save external task\n\n![Image](sample.svg)\n');
+  await writeFile(path.join(root, 'private.md'), '# Private neighbor');
+  await writeFile(path.join(root, 'sample.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const service = await createPreviewService(); t.after(() => service.close());
+  const opened = await service.openFile(file);
+  const url = opened.url.split('?')[0];
+  assert.equal(opened.filePath, path.basename(file));
+  assert.equal(new URL(opened.url).searchParams.get('embedded'), '1');
+  const rendered = z.object({ html: z.string(), revision: z.string() }).parse(await (await fetch(url + '/render?path=' + encodeURIComponent(opened.filePath))).json());
+  assert.match(rendered.html, /External notes/);
+  assert.deepEqual(await (await fetch(url + '/files')).json(), { files: [opened.filePath], truncated: false });
+  for (const route of ['source', 'render']) assert.equal((await fetch(url + '/' + route + '?path=private.md')).status, 400);
+  assert.equal((await fetch(url + '/file?path=private.md')).status, 400);
+  assert.equal((await fetch(url + '/file?path=sample.svg')).status, 200);
+  const edit = { file: opened.filePath, revision: rendered.revision, line: 2, checked: true };
+  const post = (body: unknown) => fetch(url + '/task', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: new URL(url).origin }, body: JSON.stringify(body) });
+  assert.equal((await post({ ...edit, file: 'private.md' })).status, 400);
+  assert.equal((await post(edit)).status, 200);
+  assert.match(await readFile(file, 'utf8'), /- \[x\] Save external task/);
+  assert.equal(await readFile(path.join(root, 'private.md'), 'utf8'), '# Private neighbor');
+  service.release(url);
+  assert.equal((await fetch(url)).status, 404);
+});
+
+test('single-file renderer cannot import neighboring files or follow image symlinks outside its directory', async t => {
+  const root = await fixture(t), outside = await fixture(t);
+  await writeFile(path.join(root, 'private.md'), '# PRIVATE_NEIGHBOR_CONTENT');
+  await writeFile(path.join(outside, 'private.svg'), '<svg xmlns="http://www.w3.org/2000/svg">PRIVATE_IMAGE_CONTENT</svg>');
+  await symlink(path.join(outside, 'private.svg'), path.join(root, 'escape.svg'));
+  const file = path.join(root, 'notes.md');
+  await writeFile(file, '# Explicit file\n\n@import "private.md"\n');
+  const service = await createPreviewService(); t.after(() => service.close());
+  const opened = await service.openFile(file), base = opened.url.split('?')[0];
+  const response = await fetch(base + '/render?path=notes.md');
+  assert.doesNotMatch(await response.text(), /PRIVATE_NEIGHBOR_CONTENT/);
+  assert.equal((await fetch(base + '/file?path=escape.svg')).status, 400);
+  // An explicitly opened symlink grants its resolved document, not its whole directory.
+  await symlink(file, path.join(outside, 'alias.md'));
+  const alias = await service.openFile(path.join(outside, 'alias.md'));
+  assert.equal(alias.filePath, 'notes.md');
+  await assert.rejects(service.openFile('notes.md'), /absolute/);
+  await assert.rejects(service.openFile(path.join(root, 'private.svg')));
+});
+
+test('single-file previews reject PDF imports before Crossnote can bypass its filesystem adapter', async t => {
+  const root = await fixture(t), file = path.join(root, 'notes.md');
+  await writeFile(file, '# PDF import\n\n@import "private.pdf"\n');
+  const service = await createPreviewService(); t.after(() => service.close());
+  const opened = await service.openFile(file), base = opened.url.split('?')[0];
+  const response = await fetch(base + '/render?path=notes.md');
+  assert.equal(response.status, 400);
+  assert.match(await response.text(), /PDF imports require a workspace preview/);
+  await writeFile(file, '# Code example\n\n```markdown\n@import "private.pdf"\n```\n');
+  const example = await fetch(base + '/render?path=notes.md');
+  assert.equal(example.status, 200);
+  assert.match(await example.text(), /Code example/);
+});
+
 test('real Crossnote renders tasks, tables, math and Mermaid with local assets; edit origin and revision are enforced',async t=>{
   const root=await fixture(t);
   await mkdir(path.join(root,'.crossnote'));

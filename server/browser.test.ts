@@ -102,6 +102,47 @@ test('file-tab preview opens the requested encoded path, hides the picker, and p
   assert.equal((await fetch(target)).status,404);
 });
 
+test('external-file journey renders, saves tasks, opens images and navigates links with absolute host paths', {timeout:30000}, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'paseo-md-external-'));
+  t.after(() => rm(root, {recursive:true,force:true}));
+  const filename = path.join(root, 'Notes & 日本語.md');
+  await writeFile(filename, '# External document\n\n- [ ] External task\n\n![Local image](sample.svg)\n\n[Neighbor](neighbor.md)');
+  await writeFile(path.join(root, 'neighbor.md'), '# Neighbor document');
+  await writeFile(path.join(root, 'sample.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>');
+  const service = await createPreviewService(); t.after(() => service.close());
+  const opened = await service.openFile(filename);
+  const harness = createServer((_req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    // Text content makes the parent's navigation request observable without opening
+    // a neighboring document inside the original document's grant.
+    res.end(`<html><body><p role="status" id="navigation"></p><iframe title="External Markdown" src="${opened.url.replaceAll('&','&amp;')}"></iframe><script>addEventListener('message',e=>{if(e.source===document.querySelector('iframe').contentWindow&&e.data.type==='paseo.markdown.open')document.getElementById('navigation').textContent=e.data.path})</script></body></html>`);
+  });
+  await new Promise<void>(resolve => harness.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise<void>(resolve => {harness.closeAllConnections();harness.close(() => resolve());}));
+  const address = harness.address(); assert(address && typeof address !== 'string');
+  const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium', headless:true, args:['--no-sandbox']}); t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.goto(`http://127.0.0.1:${address.port}`);
+  const frame = page.frameLocator('iframe[title="External Markdown"]');
+  await frame.getByRole('heading', {name:'External document',exact:true}).waitFor();
+  await frame.getByRole('checkbox', {name:'External task',exact:true}).check();
+  await frame.locator('#status').filter({hasText:'Live'}).waitFor({state:'attached'});
+  await page.reload();
+  await frame.getByRole('heading', {name:'External document',exact:true}).waitFor();
+  assert.equal(await frame.getByRole('checkbox', {name:'External task',exact:true}).isChecked(), true);
+  assert.match(await readFile(filename, 'utf8'), /- \[x\] External task/);
+  await frame.getByRole('img', {name:'Local image',exact:true}).click();
+  await frame.getByRole('dialog').waitFor();
+  assert.equal(await frame.getByRole('dialog').getByRole('img').evaluate(image => (image as unknown as {naturalWidth:number}).naturalWidth), 100);
+  await frame.getByRole('button', {name:'Close image',exact:true}).click();
+  await frame.getByRole('link', {name:'Neighbor',exact:true}).click();
+  await page.getByRole('status').filter({hasText:path.join(root,'neighbor.md')}).waitFor();
+  assert.equal(await frame.getByRole('heading', {name:'External document',exact:true}).isVisible(), true);
+  assert.equal(await frame.getByRole('heading', {name:'Neighbor document',exact:true}).count(), 0);
+  await page.setViewportSize({width:390,height:844});
+  await frame.getByRole('heading', {name:'External document',exact:true}).waitFor();
+});
+
 test('workspace panel close releases its real session and reopening creates a fresh usable preview', {timeout:30000}, async t => {
   const root=await mkdtemp(path.join(tmpdir(),'paseo-md-panel-'));
   t.after(()=>rm(root,{recursive:true,force:true}));
@@ -132,7 +173,7 @@ test('workspace panel close releases its real session and reopening creates a fr
   await new Promise<void>(resolve=>harness.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise<void>(resolve=>{harness.closeAllConnections();harness.close(()=>resolve());}));
   const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',headless:true,args:['--no-sandbox']});t.after(()=>browser.close());
-  const page=await browser.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage();const errors:string[]=[];page.on('pageerror',e=>{errors.push(e.message);console.error('Panel browser error:',e.message);});
   await page.clock.install();
   const address=harness.address();assert(address&&typeof address!=='string');await page.goto(`http://127.0.0.1:${address.port}`);
   const frame=page.frameLocator('iframe[title="Markdown Preview Enhanced"]');

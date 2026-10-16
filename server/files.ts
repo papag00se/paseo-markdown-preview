@@ -2,21 +2,23 @@ import { createHash } from 'node:crypto';
 import { open, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+export const imageTypes: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 export const markdownExtension = /\.(md|markdown|mdx|mkd|mdown)$/i;
 export const revisionOf = (content: string) => createHash('sha256').update(content).digest('hex');
 const ignored = new Set(['node_modules', '.git', '.cache', '.crossnote', 'vendor']);
 
-export async function confinedFile(root: string, relative: string): Promise<string> {
+export async function confinedFile(root: string, relative: string, document?: string): Promise<string> {
   if (path.isAbsolute(relative) || relative.includes('\0')) throw new Error('Choose a file inside this workspace.');
   const resolved = await realpath(path.resolve(root, relative));
   const rel = path.relative(root, resolved);
   if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) throw new Error('File is outside this workspace.');
+  if (document && resolved !== document) throw new Error('This preview can access only the opened Markdown file.');
   return resolved;
 }
 
-export async function readMarkdown(root: string, relative: string) {
+export async function readMarkdown(root: string, relative: string, document?: string) {
   if (!markdownExtension.test(relative)) throw new Error('Choose a Markdown file.');
-  const filename = await confinedFile(root, relative);
+  const filename = await confinedFile(root, relative, document);
   const info = await stat(filename);
   if (!info.isFile() || info.size > 2 * 1024 * 1024) throw new Error('Preview supports regular Markdown files up to 2 MiB.');
   const handle = await open(filename, 'r');
@@ -47,8 +49,8 @@ export async function listMarkdown(root: string) {
 
 // Change only the checkbox byte. A preview click never rewrites or truncates the document.
 // Opening the source itself also preserves permissions, hard links, and inode-based watchers.
-export async function setTask(root: string, relative: string, revision: string, line: number, checked: boolean) {
-  const doc = await readMarkdown(root, relative);
+export async function setTask(root: string, relative: string, revision: string, line: number, checked: boolean, document?: string) {
+  const doc = await readMarkdown(root, relative, document);
   if (doc.revision !== revision) throw new Error('The file changed. Refresh the preview before editing a task.');
   const lines = doc.source.split('\n');
   const original = lines[line];

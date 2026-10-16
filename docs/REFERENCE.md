@@ -28,8 +28,7 @@ paseo plugin install "$PWD"
 
 Validated as `markdown-preview` on a Paseo 0.11.2 daemon, with the SDK pinned to
 0.11.2 for typechecking. The plugin reported `running` after hot reload; its live
-RPC opened a preview and rendered this README successfully. The 15 backend tests
-also pass. The daemon was not restarted for the plugin upgrade.
+RPC opened a preview and rendered this README successfully. Backend and browser regressions cover workspace and external-file previews. The daemon does not need restarting for a plugin upgrade.
 The preview listener starts on demand and is closed by plugin cleanup.
 
 If you move this directory, run `npm run prepare` before loading/reloading the plugin.
@@ -54,8 +53,7 @@ stale revisions, workspace confinement, and edit-origin checks.
 
 ## Current limits
 
-- Paseo has no plugin file-editor registration: ordinary Explorer `.md` clicks
-  still open Paseo's own preview. Open this plugin through Command Center instead.
+- This fork's desktop Markdown file tabs embed the plugin automatically. The workspace-wide picker remains available through Command Center. Stock Paseo does not register the plugin as a file editor.
 - The Markdown file list is capped at 2,000 files/20,000 entries and skips hidden,
   dependency, and vendor directories. Preview files are limited to 2 MiB.
 - MDX is rendered as Markdown; JSX is not executed. Repository `.crossnote` config
@@ -74,6 +72,10 @@ Preview Enhanced setup without modifying the original VS Code extensions.
 
 ## Desktop file-tab contract
 
-The Paseo fork calls `preview.open` with `workspaceId`, `filePath`, and `embedded: true`. The plugin validates the selected Markdown file against the workspace before allocating a session. Embedded previews hide the panel picker and send local Markdown navigation to the owning file tab. `preview.close` releases that session when the rendered view unmounts. The normal workspace-panel contract remains available.
+For files inside the workspace, the Paseo fork calls `preview.open` with `workspaceId`, `filePath`, and `embedded: true`. Workspace traversal and escaping symlinks remain rejected.
+
+For a file explicitly opened outside the workspace, the desktop calls `preview.file.open` with its absolute `filePath`; no workspace registration is required. The returned `filePath` is the selected filename used in the preview URL. This creates a single-document grant, not a workspace rooted at the file's parent directory. Only that resolved Markdown document can be listed, rendered, read, or edited. Local images must stay inside its resolved parent directory (including subdirectories); escaping image symlinks are rejected. Other documents cannot be imported. PDF imports require a workspace preview because Crossnote's converter bypasses its filesystem adapter. Existing size, origin, revision, script/config, and session-lifetime restrictions still apply.
+
+Embedded previews hide the picker and send local Markdown link clicks as absolute host paths to the owning file tab. Clicking a link opens another normal file tab; it does not expand the current session's grant. Relative images and links resolve beside the canonical document, including when the opened path is a symlink. `preview.close` releases the session when the view unmounts. The desktop displays the actual failure without always recommending a plugin update.
 
 Workspace panels own their preview sessions: closing a panel calls `preview.close`; reopening always allocates a fresh URL. Mounted panels renew after seven hours, before the host’s eight-hour expiry. They recheck that deadline when the page becomes visible or resumes focus, so suspended browser timers do not leave an expired URL cached. Failed opens or renewals expose Retry, which releases any previous session and starts again. Theme changes only remount the iframe and preserve the current session.
