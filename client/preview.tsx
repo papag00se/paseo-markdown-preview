@@ -1,16 +1,39 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useRpc, type PluginWorkspacePanelProps } from '@getpaseo/plugin/client';
-import { openPreview, releasePreview } from '../shared/contracts';
+import { useRpc, type PluginFilePanelProps, type PluginWorkspacePanelProps } from '@getpaseo/plugin/client';
+import { openFilePreview, openPreview, releasePreview } from '../shared/contracts';
 import { ownPreviewSession } from './session';
 import { mountPreview } from './web';
 
+type PreviewTheme = PluginWorkspacePanelProps['theme'];
+type PreviewLayout = PluginWorkspacePanelProps['layout'];
+interface PreviewSession { url: string; hostname: string }
+
+/** The workspace panel browses every Markdown file in the workspace. */
 export function PreviewPanel({ workspaceId, theme, layout }: PluginWorkspacePanelProps) {
   const open = useRpc(openPreview);
+  return <PreviewFrame theme={theme} layout={layout} sessionKey={workspaceId} open={() => open({ workspaceId })} />;
+}
+
+/** A Markdown file tab gets a single-file grant: it cannot browse or edit neighboring documents. */
+export function MarkdownFilePanel({ file, theme, layout }: PluginFilePanelProps) {
+  const open = useRpc(openFilePreview);
+  return <PreviewFrame theme={theme} layout={layout} sessionKey={file.path} open={() => open({ filePath: file.path })} />;
+}
+
+function PreviewFrame({ theme, layout, sessionKey, open }: {
+  theme: PreviewTheme;
+  layout: PreviewLayout;
+  /** A new key releases the current session and opens another. */
+  sessionKey: string;
+  open: () => Promise<PreviewSession>;
+}) {
   const close = useRpc(releasePreview);
   const container = useRef<unknown>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
   const [embedded, setEmbedded] = useState(true);
-  const [data, setData] = useState<{ url: string; hostname: string }>();
+  const [data, setData] = useState<PreviewSession>();
   const [error, setError] = useState<Error>();
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -18,12 +41,12 @@ export function PreviewPanel({ workspaceId, theme, layout }: PluginWorkspacePane
     setError(undefined);
     if (layout.platform !== 'web') return;
     return ownPreviewSession({
-      open: () => open({ workspaceId }),
+      open: () => openRef.current(),
       close: url => close({ url }),
       onReady: value => { setData(value); setError(undefined); },
       onError: value => setError(value),
     });
-  }, [workspaceId, layout.platform, open, close, attempt]);
+  }, [sessionKey, layout.platform, close, attempt]);
   useEffect(() => {
     if (!data) return;
     const cleanup = mountPreview(container.current, data.url, theme.colors.surface0);

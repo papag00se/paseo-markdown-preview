@@ -12,7 +12,7 @@ image enlargement, local Markdown links, and a source/preview toggle are include
 
 ## Supported installation
 
-This version supports **directory installation**, on Paseo 0.11.2–0.11.x desktop/web on
+This version supports **directory installation**, on Paseo 0.14.x desktop/web on
 the same machine as the daemon. Native mobile and remote clients receive a
 platform/host explanation; the HTML renderer uses a loopback listener and is
 not exposed to the LAN or relay.
@@ -26,8 +26,8 @@ npm test
 paseo plugin install "$PWD"
 ```
 
-Validated as `markdown-preview` on a Paseo 0.11.2 daemon, with the SDK pinned to
-0.11.2 for typechecking. The plugin reported `running` after hot reload; its live
+Targets Paseo 0.14.x with the SDK pinned to 0.14.0 for typechecking (all 19 regressions pass);
+earlier validation was on a Paseo 0.11.2 daemon. The plugin reported `running` after hot reload; its live
 RPC opened a preview and rendered this README successfully. Backend and browser regressions cover workspace and external-file previews. The daemon does not need restarting for a plugin upgrade.
 The preview listener starts on demand and is closed by plugin cleanup.
 
@@ -53,7 +53,7 @@ stale revisions, workspace confinement, and edit-origin checks.
 
 ## Current limits
 
-- This fork's desktop Markdown file tabs embed the plugin automatically. The workspace-wide picker remains available through Command Center. Stock Paseo does not register the plugin as a file editor.
+- Markdown file tabs can use this renderer through the `markdown` file panel (**Open with → Markdown Preview Enhanced**, or make it the default in Settings → Files). The workspace-wide picker remains available through Command Center.
 - The Markdown file list is capped at 2,000 files/20,000 entries and skips hidden,
   dependency, and vendor directories. Preview files are limited to 2 MiB.
 - MDX is rendered as Markdown; JSX is not executed. Repository `.crossnote` config
@@ -70,12 +70,12 @@ The renderer remains the upstream Crossnote package. This plugin ports the
 preview-only layout and file-saving checkbox behavior from a local Markdown
 Preview Enhanced setup without modifying the original VS Code extensions.
 
-## Desktop file-tab contract
+## File panel contract
 
 For files inside the workspace, the Paseo fork calls `preview.open` with `workspaceId`, `filePath`, and `embedded: true`. Workspace traversal and escaping symlinks remain rejected.
 
-For a file explicitly opened outside the workspace, the desktop calls `preview.file.open` with its absolute `filePath`; no workspace registration is required. The returned `filePath` is the selected filename used in the preview URL. This creates a single-document grant, not a workspace rooted at the file's parent directory. Only that resolved Markdown document can be listed, rendered, read, or edited. Local images must stay inside its resolved parent directory (including subdirectories); escaping image symlinks are rejected. Other documents cannot be imported. PDF imports require a workspace preview because Crossnote's converter bypasses its filesystem adapter. Existing size, origin, revision, script/config, and session-lifetime restrictions still apply.
+A Markdown file tab using the `markdown` file panel calls `preview.file.open` with the file's absolute `filePath`; no workspace registration is required. The returned `filePath` is the selected filename used in the preview URL. This creates a single-document grant, not a workspace rooted at the file's parent directory. Only that resolved Markdown document can be listed, rendered, read, or edited. Local images must stay inside its resolved parent directory (including subdirectories); escaping image symlinks are rejected. Other documents cannot be imported. PDF imports require a workspace preview because Crossnote's converter bypasses its filesystem adapter. Existing size, origin, revision, script/config, and session-lifetime restrictions still apply.
 
-Embedded previews hide the picker and send local Markdown link clicks as absolute host paths to the owning file tab. Clicking a link opens another normal file tab; it does not expand the current session's grant. Relative images and links resolve beside the canonical document, including when the opened path is a symlink. `preview.close` releases the session when the view unmounts. The desktop displays the actual failure without always recommending a plugin update.
+Embedded previews hide the picker and post local Markdown link clicks as absolute host paths to the parent page. Paseo 0.14 gives plugin file panels no way to open another file tab, so those clicks do nothing in a file tab; use the workspace panel to follow links. A click never expands the current session's grant. Relative images and links resolve beside the canonical document, including when the opened path is a symlink. `preview.close` releases the session when the view unmounts. The panel displays the actual failure with a Retry action.
 
 Workspace panels own their preview sessions: closing a panel calls `preview.close`; reopening always allocates a fresh URL. Mounted panels renew after seven hours, before the host’s eight-hour expiry. They recheck that deadline when the page becomes visible or resumes focus, so suspended browser timers do not leave an expired URL cached. Failed opens or renewals expose Retry, which releases any previous session and starts again. Theme changes only remount the iframe and preserve the current session.
