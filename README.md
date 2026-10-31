@@ -4,7 +4,7 @@
 
 # Paseo Markdown Preview
 
-![Paseo compatibility](https://img.shields.io/badge/Paseo-0.11.2-22c55e?style=flat-square)
+![Paseo compatibility](https://img.shields.io/badge/Paseo-0.14.x-22c55e?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Desktop%20%26%20web-64748b?style=flat-square)
 
@@ -49,7 +49,7 @@ flowchart LR
 
 ## Getting started
 
-Requires Node.js, npm, Paseo 0.11.2–0.11.x, and plugins enabled on the target daemon. Clone the repository and install it as a directory:
+Requires Node.js, npm, Paseo 0.14.x, and plugins enabled on the target daemon. Clone the repository and install it as a directory:
 
 ```bash
 git clone https://github.com/papag00se/paseo-markdown-preview.git
@@ -65,7 +65,7 @@ In a workspace, open **Command Center → Open Markdown Preview**, then choose a
 
 ## Compatibility
 
-Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. The [Crossnote file-preview fork](https://github.com/papag00se/paseo/tree/feature/crossnote-file-preview) opens desktop Markdown files in their existing file tabs and adds right-click → **Preview**. Stock Paseo still uses its built-in file preview; the plugin's workspace panel works independently.
+Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. Markdown file tabs can use this renderer: choose **Markdown Preview Enhanced** from the file tab's **Open with** menu or in Settings → Files. The workspace panel works independently.
 
 This version supports **directory installation**. Crossnote's assets and native dependencies require a generated local dependency path; run `npm run prepare` after moving the checkout. Direct Git/npm acquisition is not supported yet.
 
