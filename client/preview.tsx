@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useRpc, type PluginFilePanelProps, type PluginWorkspacePanelProps } from '@getpaseo/plugin/client';
-import { openFilePreview, openPreview, releasePreview } from '../shared/contracts';
+import { useRpc, type PluginWorkspacePanelProps } from '@getpaseo/plugin/client';
+import { openPreview, releasePreview } from '../shared/contracts';
 import { ownPreviewSession } from './session';
 import { mountPreview } from './web';
 
@@ -13,12 +13,6 @@ interface PreviewSession { url: string; hostname: string }
 export function PreviewPanel({ workspaceId, theme, layout }: PluginWorkspacePanelProps) {
   const open = useRpc(openPreview);
   return <PreviewFrame theme={theme} layout={layout} sessionKey={workspaceId} open={() => open({ workspaceId })} />;
-}
-
-/** A Markdown file tab gets a single-file grant: it cannot browse or edit neighboring documents. */
-export function MarkdownFilePanel({ file, theme, layout }: PluginFilePanelProps) {
-  const open = useRpc(openFilePreview);
-  return <PreviewFrame theme={theme} layout={layout} sessionKey={file.path} open={() => open({ filePath: file.path })} />;
 }
 
 function PreviewFrame({ theme, layout, sessionKey, open }: {

@@ -65,7 +65,7 @@ In a workspace, open **Command Center → Open Markdown Preview**, then choose a
 
 ## Compatibility
 
-Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. Markdown file tabs can use this renderer: choose **Markdown Preview Enhanced** from the file tab's **Open with** menu or in Settings → Files. The workspace panel works independently.
+Desktop/web clients must run on the daemon machine: the renderer uses a loopback-only service. Native mobile and remote clients are not supported by this renderer. In Jesse's Paseo fork, Markdown file tabs use this renderer for **Preview**, with **Source** for editing. The workspace panel works independently.
 
 This version supports **directory installation**. Crossnote's assets and native dependencies require a generated local dependency path; run `npm run prepare` after moving the checkout. Direct Git/npm acquisition is not supported yet.
 
