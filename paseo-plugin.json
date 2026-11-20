@@ -2,7 +2,7 @@
   "id": "markdown-preview",
   "description": "Markdown Preview Enhanced rendering, live file updates, and interactive task checkboxes in a preview-only desktop tab.",
   "requirements": {
-    "paseo": ">=0.14.0 <0.15.0"
+    "paseo": ">=0.14.0 <0.17.0"
   },
   "build": [
     [
